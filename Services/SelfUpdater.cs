@@ -86,8 +86,16 @@ public static class SelfUpdater
                 return result;
             }
 
+            // 交叉校验：atom 源是实时的，若它有更新的 tag 则采用
+            var atomLatest = await GetLatestTagFromAtomAsync(ct);
+            if (atomLatest != null && CompareVersion(NormalizeTag(atomLatest), NormalizeTag(tag)) > 0)
+            {
+                tag = atomLatest;
+                result.Source = "atom";
+            }
+            else result.Source = "redirect";
+
             result.LatestVersion = NormalizeTag(tag);
-            result.Source = "redirect";
             result.Release = new GitHubRelease
             {
                 TagName = tag,
@@ -120,7 +128,11 @@ public static class SelfUpdater
 
     private static async Task<string?> GetLatestTagAsync(CancellationToken ct)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/releases/latest");
+        // 加 cache-buster：GitHub 的 /releases/latest 有边缘缓存，
+        // 刚发布时可能仍返回上一个版本（实测无参数拿到 v2.5.0，带参数拿到 v2.5.1）。
+        var cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        using var req = new HttpRequestMessage(HttpMethod.Get,
+            $"{BaseUrl}/releases/latest?_={cacheBuster}");
         using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
 
         var loc = resp.Headers.Location?.ToString();
@@ -140,9 +152,26 @@ public static class SelfUpdater
         return null;
     }
 
+    /// <summary>从 atom 源取最新 tag（实时，无边缘缓存）。</summary>
+    private static async Task<string?> GetLatestTagFromAtomAsync(CancellationToken ct)
+    {
+        try
+        {
+            var cb = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            using var resp = await Http.GetAsync($"{BaseUrl}/releases.atom?_={cb}", ct);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var xml = await resp.Content.ReadAsStringAsync(ct);
+            var m = Regex.Match(xml, @"<id>[^<]*Repository/d+/([^/<s]+)</id>");
+            return m.Success ? Uri.UnescapeDataString(m.Groups[1].Value) : null;
+        }
+        catch { return null; }
+    }
+
     private static async Task FillAssetsAsync(string tag, GitHubRelease rel, CancellationToken ct)
     {
-        using var resp = await Http.GetAsync($"{BaseUrl}/releases/expanded_assets/{tag}", ct);
+        var cb = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        using var resp = await Http.GetAsync($"{BaseUrl}/releases/expanded_assets/{tag}?_={cb}", ct);
         if (!resp.IsSuccessStatusCode) return;
 
         var html = await resp.Content.ReadAsStringAsync(ct);
@@ -164,7 +193,8 @@ public static class SelfUpdater
 
     private static async Task FillFromAtomAsync(GitHubRelease rel, CancellationToken ct)
     {
-        using var resp = await Http.GetAsync($"{BaseUrl}/releases.atom", ct);
+        var cb = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        using var resp = await Http.GetAsync($"{BaseUrl}/releases.atom?_={cb}", ct);
         if (!resp.IsSuccessStatusCode) return;
 
         var xml = await resp.Content.ReadAsStringAsync(ct);
