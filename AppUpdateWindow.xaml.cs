@@ -44,8 +44,10 @@ public partial class AppUpdateWindow : Window
 
             if (_result.Release == null) { StatusTitle.Text = "没有可用版本"; return; }
 
-            StatusDetail.Text =
-                $"最新版本 {_result.LatestVersion} · 发布于 {_result.Release.PublishedAt:yyyy-MM-dd HH:mm}";
+            var pub = _result.Release.PublishedAt.HasValue
+                ? $" · 发布于 {_result.Release.PublishedAt:yyyy-MM-dd HH:mm}"
+                : "";
+            StatusDetail.Text = $"最新版本 {_result.LatestVersion}{pub}";
             ReleaseNotes.Text = string.IsNullOrWhiteSpace(_result.Release.Body)
                 ? "（无更新说明）"
                 : _result.Release.Body;
