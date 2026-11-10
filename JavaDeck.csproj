@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>JavaDeck</AssemblyName>
+    <RootNamespace>JavaDeck</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>JavaDeck.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Version>2.4.9</Version>
+    <AssemblyVersion>2.4.9.0</AssemblyVersion>
+    <FileVersion>2.4.9.0</FileVersion>
+    <Product>JavaDeck</Product>
+    <Company>JavaDeck Contributors</Company>
+    <Copyright>Copyright (C) 2026 JavaDeck Contributors</Copyright>
+    <RepositoryUrl>https://github.com/cfengli007/JavaDeck</RepositoryUrl>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <AssemblyTitle>JavaDeck</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="JavaDeck.ico" />
+    <None Include="JavaDeck.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- 安装器是独立项目，不能混进应用编译 -->
+  <ItemGroup>
+    <Compile Remove="installer\**" />
+    <Page Remove="installer\**" />
+    <EmbeddedResource Remove="installer\**" />
+    <None Remove="installer\**" />
+  </ItemGroup>
+
+</Project>

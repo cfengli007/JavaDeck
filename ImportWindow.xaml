@@ -1,0 +1,65 @@
+<Window x:Class="JavaDeck.ImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="JavaDeck.ico"
+        Title="导入已有 JDK" Height="560" Width="780" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Bg}" Foreground="{DynamicResource Fg}"
+        Language="zh-CN" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        UseLayoutRounding="True" ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="扫描到的本机 JDK" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock x:Name="ScanHint" Text="正在扫描…" Foreground="{DynamicResource FgDim}" FontSize="12" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="重新扫描" Style="{StaticResource GhostButton}" Click="OnRescan" Margin="0,0,8,0"/>
+                <Button Content="手动添加目录…" Style="{StaticResource GhostButton}" Click="OnBrowse"/>
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2" Background="{DynamicResource Panel}" CornerRadius="8">
+            <ListBox x:Name="HitList" Background="Transparent" BorderThickness="0" SelectionMode="Multiple"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="4"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="bd" Background="#1E2028" CornerRadius="6" Padding="12,9">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#252833"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="#233A5C"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,14,0,0">
+            <TextBlock Text="选中后点「导入」登记到 JavaDeck；目录本身不会被移动或删除"
+                       Foreground="{DynamicResource FgDim}" FontSize="11" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="取消" Style="{StaticResource FlatButton}" Click="OnCancel" Margin="0,0,8,0" Padding="18,6"/>
+                <Button Content="导入" Style="{StaticResource PrimaryButton}" Click="OnImport" Padding="22,6"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

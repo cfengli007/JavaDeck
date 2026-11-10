@@ -1,0 +1,21 @@
+# 构建产物
+bin/
+obj/
+dist/
+stage/
+installer/dist/
+installer/payload/
+installer/stage/
+portable/
+
+# 带外部依赖的 Inno Setup 副本（体积大，可由 README 说明重建）
+signing/InnoSetup6-patched/
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# 其它
+*.log
+*.tmp
