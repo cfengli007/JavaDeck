@@ -770,17 +770,7 @@ public partial class MainWindow : Window
 
     private void OnAbout(object sender, RoutedEventArgs e)
     {
-        var body =
-            "JavaDeck  " + SelfUpdater.CurrentVersion + "\n" +
-            "JDK 版本管理器 · Windows 原生\n\n" +
-            "技术栈：WPF / .NET 8\n" +
-            "JDK 来源：BellSoft Liberica（LTS 8/11/17/21/25）\n\n" +
-            "许可证：GPL-3.0\n" +
-            "Copyright (C) 2026 JavaDeck Contributors\n\n" +
-            "项目地址：\n" + SelfUpdater.RepoUrl + "\n\n" +
-            "本程序是自由软件，依据 GNU 通用公共许可证第 3 版发布；\n" +
-            "你可以自由复制、修改和再分发，但不提供任何担保。";
-        var w = new MsgWindow("关于 JavaDeck", body, false) { Owner = this };
+        var w = new AboutWindow { Owner = this };
         w.ShowDialog();
     }
 
