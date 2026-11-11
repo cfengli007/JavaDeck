@@ -19,3 +19,6 @@ signing/InnoSetup6-patched/
 # 其它
 *.log
 *.tmp
+# 代码签名私钥（绝不提交）
+signing/toolchain/*.pfx
+*.pfx
