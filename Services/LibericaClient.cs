@@ -70,7 +70,10 @@ public sealed class VersionStatus
 public sealed class LibericaClient
 {
     private static HttpClient SharedHttp = CreateClient();
-    private readonly HttpClient _http;
+    // 仅测试注入时使用；正常路径为 null。
+    // 关键：绝不在字段里缓存 SharedHttp 引用——RefreshHandler 会替换并释放它，
+    // 缓存的实例会变成已 Dispose 的 client（曾导致"获取失败：网络不可达"）。
+    private readonly HttpClient? _injected;
 
     /// <summary>代理设置变更后重建底层 HttpClient。</summary>
     public static void RefreshHandler(IWebProxy? proxy)
@@ -85,20 +88,25 @@ public sealed class LibericaClient
                 MaxConnectionsPerServer = 8,
             };
             if (proxy != null) handler.Proxy = proxy;
-            SharedHttp.Dispose();
+            // 先替换引用、再释放旧实例，避免把已 Dispose 的 client 暴露给在途请求。
+            var old = SharedHttp;
             SharedHttp = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
             SharedHttp.DefaultRequestHeaders.UserAgent.ParseAdd("JavaDeck/2.1");
+            old.Dispose();
         }
         catch { }
     }
 
-    public LibericaClient() : this(SharedHttp) { }
+    public LibericaClient() { }
 
     /// <summary>用于测试注入自定义 handler。</summary>
     public LibericaClient(HttpMessageHandler handler)
         : this(new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(2) }) { }
 
-    private LibericaClient(HttpClient http) => _http = http;
+    private LibericaClient(HttpClient http) => _injected = http;
+
+    // 每次请求都解析当前实例，永不持有被 Dispose 的旧引用。
+    private HttpClient Http => _injected ?? SharedHttp;
 
     public static readonly (string bundle, string variant)[] Bundles =
     {
@@ -178,7 +186,7 @@ public sealed class LibericaClient
         if (!string.IsNullOrEmpty(etag)) req.Headers.TryAddWithoutValidation("If-None-Match", etag);
         if (!string.IsNullOrEmpty(lastModified)) req.Headers.TryAddWithoutValidation("If-Modified-Since", lastModified);
 
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await Http.SendAsync(req, ct);
 
         var lm = resp.Content.Headers.LastModified?.ToString("R");
         var et = resp.Headers.ETag?.Tag;
@@ -202,6 +210,7 @@ public sealed class LibericaClient
     public async Task<List<LibericaRelease>> GetAllAsync(int feature, CancellationToken ct = default)
     {
         var result = new List<LibericaRelease>();
+        Exception? firstError = null;
         foreach (var (bundle, _) in Bundles)
         {
             try
@@ -210,8 +219,15 @@ public sealed class LibericaClient
                 result.AddRange(r.Releases);
             }
             catch (OperationCanceledException) { throw; }
-            catch { }
+            catch (Exception ex)
+            {
+                firstError ??= ex;
+                App.LogFatal(ex);   // 记录真实异常到 error.log，便于诊断
+            }
         }
+        // 全部变体都失败 → 抛出真实原因，不再笼统显示"网络不可达"
+        if (result.Count == 0 && firstError != null)
+            throw new Exception($"无法连接 BellSoft API：{firstError.GetType().Name}: {firstError.Message}", firstError);
         return result;
     }
 
@@ -232,7 +248,7 @@ public sealed class LibericaClient
                   $"?version-feature={feature}&version={Uri.EscapeDataString(version)}" +
                   $"&os=windows&arch=x86&bitness=64&package-type=zip&bundle-type={bundleType}";
 
-        using var resp = await _http.GetAsync(url, ct);
+        using var resp = await Http.GetAsync(url, ct);
         if (!resp.IsSuccessStatusCode) return null;
         await using var s = await resp.Content.ReadAsStreamAsync(ct);
         var list = await JsonSerializer.DeserializeAsync<List<LibericaRelease>>(s, cancellationToken: ct) ?? new();
@@ -264,7 +280,7 @@ public sealed class LibericaClient
                   $"?version-feature={feature}&version-modifier=latest" +
                   $"&os=windows&arch=x86&bitness=64&package-type=zip&bundle-type={bundleType}";
 
-        using var resp = await _http.GetAsync(url, ct);
+        using var resp = await Http.GetAsync(url, ct);
         if (!resp.IsSuccessStatusCode) return null;
         await using var s = await resp.Content.ReadAsStreamAsync(ct);
         var list = await JsonSerializer.DeserializeAsync<List<LibericaRelease>>(s, cancellationToken: ct) ?? new();
@@ -278,7 +294,7 @@ public sealed class LibericaClient
         string url, string destFile, long expectedSize, string expectedSha1,
         IProgress<(long done, long total)>? progress, CancellationToken ct, int segments = 6)
     {
-        using var probe = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var probe = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         probe.EnsureSuccessStatusCode();
 
         var total = probe.Content.Headers.ContentLength ?? expectedSize;
@@ -319,7 +335,7 @@ public sealed class LibericaClient
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, url);
                 req.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(start, end);
-                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
                 resp.EnsureSuccessStatusCode();
                 await using var src = await resp.Content.ReadAsStreamAsync(ct);
                 var buffer = new byte[1 << 16];
@@ -341,7 +357,7 @@ public sealed class LibericaClient
     private async Task DownloadSingleAsync(string url, string destFile, long total,
         IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
-        using var resp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         resp.EnsureSuccessStatusCode();
         var len = resp.Content.Headers.ContentLength ?? total;
         await using var src = await resp.Content.ReadAsStreamAsync(ct);

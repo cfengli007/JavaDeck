@@ -55,6 +55,7 @@ public partial class AddJdkWindow : Window
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
+            Exception? firstError = null;
             if (IsAll)
             {
                 var features = Features.Where(f => f > 0).ToList();
@@ -71,7 +72,12 @@ public partial class AddJdkWindow : Window
                         var n = System.Threading.Interlocked.Increment(ref done);
                         Dispatcher.Invoke(() => HintText.Text = $"已获取 {n}/{features.Count} 个 LTS 版本…");
                     }
-                    catch { }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        lock (results) { firstError ??= ex; }
+                        App.LogFatal(ex);
+                    }
                 });
                 await Task.WhenAll(tasks);
                 _cache = results;
@@ -83,7 +89,7 @@ public partial class AddJdkWindow : Window
 
             ApplyFilter();
             HintText.Text = _cache.Count == 0
-                ? "获取失败：网络不可达"
+                ? (firstError != null ? "获取失败：" + firstError.Message : "未获取到任何版本，请检查网络或稍后重试")
                 : $"{_cache.Count} 个版本可选（可多选，直接点击即可）";
         }
         catch (OperationCanceledException) { HintText.Text = "获取超时，请检查网络"; }
